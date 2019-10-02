@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.barrowshelper;
 import javax.inject.Inject;
 import net.runelite.api.*;
+import net.runelite.client.plugins.inventoryscanner.InventoryScannerPlugin;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
@@ -32,11 +33,11 @@ public class BarrowsHelperPlugin extends Plugin
     @Inject
     private OverlayManager overlayManager;
 
-//    @Inject
-//    private BarrowsHelperOverlay barrowsOverlay;
-
     @Inject
     private Client client;
+
+    @Inject
+    private NPCManager npcManager;
 
     @Override
     protected void startUp() throws Exception
@@ -57,12 +58,16 @@ public class BarrowsHelperPlugin extends Plugin
     @Subscribe
     public void onInteractingChanged(InteractingChanged event)
     {
-        if (event.getSource() != client.getLocalPlayer())
+        boolean isBrother = isBrotherInteracting(event.getSource(), event.getTarget());
+        if (event.getSource() != client.getLocalPlayer() && !isBrother)
         {
             return;
         }
 
         Actor opponentActor = event.getTarget();
+        if(isBrother){
+            opponentActor = event.getSource();
+        }
 
         if (opponentActor == null)
         {
@@ -76,8 +81,30 @@ public class BarrowsHelperPlugin extends Plugin
         if(!(opponentActor instanceof NPC)){
             return;
         }
+    }
 
-        checkPrayerAgainst(opponentActor);
+    private boolean isBrotherActor(String actorName){
+        actorName = actorName.toLowerCase();
+        for (Map.Entry<Integer, Crypt> cryptItem: brotherRegions.crypts.entrySet()) {
+            Crypt iCrypt = cryptItem.getValue();
+            if(actorName.equals(iCrypt.getName())){
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public boolean isBrotherInteracting(Actor source, Actor target){
+        if(source == null || target == null || source.getName() == null || target.getName() == null || target != client.getLocalPlayer()){
+            return false;
+        }
+
+        if(isBrotherActor(source.getName())){
+            return true;
+        }
+
+        return false;
     }
 
     public void checkPrayerAgainst(Actor actor){
@@ -289,11 +316,11 @@ public class BarrowsHelperPlugin extends Plugin
         }
 
         if(client.isPrayerActive(prayer)){
-            if(restore){
+            if(restore && InventoryScannerPlugin.HasPrayerItem(client)){
                 sendPrayerCommand();
             }
         }else{
-            sendPrayAgainstCommand(prayAgainst, restore);
+            sendPrayAgainstCommand(prayAgainst, restore && InventoryScannerPlugin.HasPrayerItem(client));
         }
     }
 
@@ -341,6 +368,15 @@ public class BarrowsHelperPlugin extends Plugin
                 if(isAnyPrayerActive()) {
                     disablePrayer();
                 }
+            }
+        }else if(lastOpponent != null && !isAnyPrayerActive()){
+            checkPrayerAgainst(lastOpponent);
+        }
+        if(lastOpponent != null && npcManager.getHealth(lastOpponent.getName(), lastOpponent.getCombatLevel()) == 0){
+            if(isBrotherActor(lastOpponent.getName())) {
+                System.out.println("Brother defeated");
+            }else {
+                System.out.println("Opponent defeated");
             }
         }
     }

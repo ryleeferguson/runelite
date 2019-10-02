@@ -125,7 +125,7 @@ public class InventoryScannerPlugin extends Plugin {
             int y = inventoryPoint.getY() + (i * 31) + (i * 5);
 
             for (int j = 0; j < 4; j++){
-                int x = inventoryPoint.getX() + (j * 31) + (j * 11);
+                int x = inventoryPoint.getX() + (j * 31) + (j * 10);
 
                 Map<String, Integer> slot = new HashMap();
                 slot.put("x", x);
@@ -188,5 +188,24 @@ public class InventoryScannerPlugin extends Plugin {
         } catch(IOException e){
             e.printStackTrace();
         }
+    }
+
+    public static boolean HasPrayerItem(Client client){
+        Widget inventory = client.getWidget(WidgetInfo.INVENTORY);
+        Collection<WidgetItem> items = inventory.getWidgetItems();
+        SlotItems slotItems = new SlotItems();
+
+        // populate items
+        for (WidgetItem item : items) {
+            if(item == null){
+                continue;
+            }
+
+            if(slotItems.prayerItems.containsKey(item.getId())){
+                return true;
+            }
+        }
+
+        return false;
     }
 }
