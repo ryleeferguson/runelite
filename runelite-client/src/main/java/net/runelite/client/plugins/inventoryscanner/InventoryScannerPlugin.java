@@ -6,6 +6,7 @@ import net.runelite.api.Client;
 import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.Point;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.WidgetHiddenChanged;
 import net.runelite.api.widgets.*;
@@ -19,7 +20,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 
 @PluginDescriptor(
         name = "Inventory Scanner",
@@ -37,6 +40,20 @@ public class InventoryScannerPlugin extends Plugin {
     InventoryData inventoryData = new InventoryData();
 
     boolean inventoryHidden = true;
+
+    boolean inventoryInit = false;
+
+    @Subscribe
+    public void onGameTick(GameTick event){
+        if(!inventoryInit){
+            Widget inventory = client.getWidget(WidgetInfo.INVENTORY);
+            Point rawInventoryPoint = inventory.getCanvasLocation();
+            if(rawInventoryPoint.getX() > 100){
+                updateInventoryMap();
+                updateInventoryData();
+            }
+        }
+    }
 
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event)
@@ -75,11 +92,11 @@ public class InventoryScannerPlugin extends Plugin {
 
             inventoryData.inventory.put(item.getIndex(), slot);
 
-            try {
-                System.out.println(mapper.writeValueAsString(slot));
-            }catch(JsonProcessingException e){
-                e.printStackTrace();
-            }
+//            try {
+//                System.out.println(mapper.writeValueAsString(slot));
+//            }catch(JsonProcessingException e){
+//                e.printStackTrace();
+//            }
         }
         try {
             String json = mapper.writeValueAsString(inventoryData);
@@ -95,28 +112,38 @@ public class InventoryScannerPlugin extends Plugin {
         Widget inventory = client.getWidget(WidgetInfo.INVENTORY);
 
         Point rawInventoryPoint = inventory.getCanvasLocation();
+        if(rawInventoryPoint.getX() > 100){
+            inventoryInit = true;
+        }
         Point inventoryPoint = new Point(rawInventoryPoint.getX() + 4, rawInventoryPoint.getY() + 27);
-        System.out.println("Inventory actual location: " + Double.toString(inventoryPoint.getX()) + ","  + Double.toString(inventoryPoint.getY()));
+        // System.out.println("Inventory actual location: " + Double.toString(inventoryPoint.getX()) + ","  + Double.toString(inventoryPoint.getY()));
+        Map<String, Object> slotMap = new HashMap();
+        Map<String, Object> inventorySlots = new HashMap();
 
         int index = 0;
-        for (int i = 0; i < 4; i++){
-            int x = inventoryPoint.getX() + (i * 31);
-            if(i > 0){
-                x += 5;
-            }
+        for (int i = 0; i < 7; i++){
+            int y = inventoryPoint.getY() + (i * 31) + (i * 5);
 
-            for (int j = 0; j < 7; j++){
-                int y = inventoryPoint.getY() + (j * 31);
-                if(i > 0){
-                    x += 10;
-                }
+            for (int j = 0; j < 4; j++){
+                int x = inventoryPoint.getX() + (j * 31) + (j * 11);
 
-                System.out.println(Integer.toString(index) + ": " + Integer.toString(x) + ", " + Integer.toString(y));
+                Map<String, Integer> slot = new HashMap();
+                slot.put("x", x);
+                slot.put("y", y);
+
+                inventorySlots.put(Integer.toString(index), slot);
 
                 index++;
             }
         }
+        slotMap.put("inventory", inventorySlots);
 
+        try {
+            String json = mapper.writeValueAsString(slotMap);
+            writeSlotData(json);
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
     }
 
     @Subscribe
@@ -142,7 +169,7 @@ public class InventoryScannerPlugin extends Plugin {
     public void inventoryHiddenChanged(){
         Widget inventory = client.getWidget(WidgetID.INVENTORY_GROUP_ID, 0);
 
-        System.out.println("Inventory hidden changed");
+        // System.out.println("Inventory hidden changed");
     }
 
     public void writeInventoryData(String jsonString) throws IOException {
@@ -150,5 +177,16 @@ public class InventoryScannerPlugin extends Plugin {
         PrintWriter printWriter = new PrintWriter(fileWriter);
         printWriter.print(jsonString);
         printWriter.close();
+    }
+
+    public void writeSlotData(String jsonString){
+        try {
+            FileWriter fileWriter = new FileWriter("C:\\dev\\RuneLite\\barrowshelper\\slotMap.json");
+            PrintWriter printWriter = new PrintWriter(fileWriter);
+            printWriter.print(jsonString);
+            printWriter.close();
+        } catch(IOException e){
+            e.printStackTrace();
+        }
     }
 }
